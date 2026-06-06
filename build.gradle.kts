@@ -24,6 +24,7 @@ dependencies {
     // 基础 Web 与数据库连接支持
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
+    implementation("org.springframework.boot:spring-boot-starter-websocket")
 
     // Kotlin 扩展
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")

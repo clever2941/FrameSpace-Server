@@ -12,7 +12,9 @@ import org.springframework.stereotype.Service
 import java.time.LocalDateTime
 
 @Service
-class UserServiceImpl : ServiceImpl<UserMapper, User>(), UserService {
+class UserServiceImpl(
+    private val jwtUtils: JwtUtils
+) : ServiceImpl<UserMapper, User>(), UserService {
 
     override fun register(request: AuthRequest): Result<String> {
         // 1. 检查用户名是否已存在
@@ -50,7 +52,7 @@ class UserServiceImpl : ServiceImpl<UserMapper, User>(), UserService {
         }
 
         // 3. 密码正确，生成 JWT Token 返回
-        val token = JwtUtils.generateToken(user.id!!, user.username!!)
+        val token = jwtUtils.generateToken(user.id!!, user.username!!)
         return Result.success(token)
     }
 }

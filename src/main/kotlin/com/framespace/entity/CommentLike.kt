@@ -6,26 +6,14 @@ import com.baomidou.mybatisplus.annotation.TableId
 import com.baomidou.mybatisplus.annotation.TableName
 import java.time.LocalDateTime
 
-@TableName("user")
-data class User(
+@TableName("comment_like")
+data class CommentLike(
     @TableId(value = "id", type = IdType.AUTO)
     var id: Long? = null,
-
-    @TableField("username")
-    var username: String? = null,
-
-    @TableField("nickname")
-    var nickname: String? = null,
-
-    @TableField("avatar_url")
-    var avatarUrl: String? = null,
-
-    @TableField("bio")
-    var bio: String? = null,
-
-    @TableField("password_hash")
-    var passwordHash: String? = null,
-
+    @TableField("user_id")
+    var userId: Long? = null,
+    @TableField("comment_id")
+    var commentId: Long? = null,
     @TableField("created_at")
     var createdAt: LocalDateTime? = null
 )

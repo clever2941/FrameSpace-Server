@@ -1,53 +1,124 @@
 package com.framespace.controller
 
+import com.framespace.common.GenreCatalog
 import com.framespace.common.Result
+import com.framespace.dto.EnsureMovieDto
+import com.framespace.dto.MovieDetailDto
+import com.framespace.dto.MoviePageDto
 import com.framespace.entity.Movie
+import com.framespace.service.MovieDetailService
 import com.framespace.service.MovieService
+import com.framespace.service.MovieSyncService
+import com.framespace.service.MovieTitleRefreshService
+import com.framespace.utils.JwtAuthHelper
+import jakarta.servlet.http.HttpServletRequest
 import org.springframework.web.bind.annotation.*
 
-/**
- * 电影模块前端控制器
- * 使用构造器注入的方式引入 MovieService
- */
 @RestController
 @RequestMapping("/api/movies")
-class MovieController(private val movieService: MovieService) {
+class MovieController(
+    private val movieService: MovieService,
+    private val movieDetailService: MovieDetailService,
+    private val movieSyncService: MovieSyncService,
+    private val movieTitleRefreshService: MovieTitleRefreshService,
+    private val jwtAuthHelper: JwtAuthHelper
+) {
 
-    /**
-     * 1. 电影列表接口 (支持分页)
-     * 请求路径：GET /api/movies?page=0&size=10
-     */
-    @GetMapping
-    fun getMovies(
+    @GetMapping("/now-playing")
+    fun getNowPlaying(
         @RequestParam(value = "page", defaultValue = "0") page: Long,
-        @RequestParam(value = "size", defaultValue = "10") size: Long
-    ): Result<List<Movie>> {
-        // 1. 调用 Service 层获取分页数据对象
-        val moviePage = movieService.getMovieList(page, size)
-
-        // 2. 从分页结果对象中提取出当前的电影列表数据 (List<Movie>)
-        val movies: List<Movie> = moviePage.records
-
-        // 3. 将数据放入统一的包装类中返回给 Android 端
-        return Result.success(movies)
+        @RequestParam(value = "size", defaultValue = "15") size: Long,
+        @RequestParam(value = "region", defaultValue = "ALL") region: String,
+        @RequestParam(value = "genreId", required = false) genreId: Int?,
+        @RequestParam(value = "year", required = false) year: String?
+    ): Result<MoviePageDto> {
+        val moviePage = movieService.getNowPlaying(page, size, region, genreId, year)
+        return Result.success(toPageDto(moviePage, page, size))
     }
 
-    /**
-     * 2. 电影详情接口
-     * 请求路径：GET /api/movies/{id}
-     */
-    @GetMapping("/{id}")
-    fun getMovieDetail(@PathVariable("id") id: Long): Result<Movie> {
-        // 1. 调用 Service 层根据 ID 查询电影详情
-        val movie = movieService.getMovieById(id)
+    @GetMapping("/top500")
+    fun getTop500(
+        @RequestParam(value = "page", defaultValue = "0") page: Long,
+        @RequestParam(value = "size", defaultValue = "15") size: Long,
+        @RequestParam(value = "genreId", required = false) genreId: Int?,
+        @RequestParam(value = "year", required = false) year: String?
+    ): Result<MoviePageDto> {
+        val moviePage = movieService.getTop500(page, size, genreId, year)
+        return Result.success(toPageDto(moviePage, page, size))
+    }
 
-        // 2. 优雅的异常与空值处理
-        return if (movie != null) {
-            // 如果电影存在，返回 200 状态码并携带电影对象
-            Result.success(movie)
-        } else {
-            // 如果电影不存在（如传入了非法的 ID），返回 404 状态码和明确的错误提示
-            Result.error(404, "很抱歉，未找到该电影的信息或已被下架")
+    @GetMapping("/genres")
+    fun getGenres(): Result<List<com.framespace.dto.GenreDto>> {
+        return Result.success(GenreCatalog.all)
+    }
+
+    @GetMapping("/search")
+    fun searchMovies(
+        @RequestParam("q") query: String,
+        @RequestParam(value = "page", defaultValue = "0") page: Long,
+        @RequestParam(value = "size", defaultValue = "15") size: Long
+    ): Result<MoviePageDto> {
+        if (query.isBlank()) {
+            return Result.success(MoviePageDto(emptyList(), 0, page, size))
+        }
+        val moviePage = movieService.searchMovies(query, page, size)
+        return Result.success(toPageDto(moviePage, page, size))
+    }
+
+    @PostMapping("/ensure/{tmdbId}")
+    fun ensureMovie(@PathVariable tmdbId: Int): Result<EnsureMovieDto> {
+        return try {
+            val movie = movieService.ensureMovieByTmdbId(tmdbId)
+            val id = movie.id ?: throw IllegalArgumentException("入库失败")
+            Result.success(EnsureMovieDto(id = id, tmdbId = tmdbId))
+        } catch (e: IllegalArgumentException) {
+            Result.error(404, e.message ?: "电影不存在")
         }
     }
+
+    @GetMapping("/{id}/detail")
+    fun getMovieDetail(
+        @PathVariable("id") id: Long,
+        request: HttpServletRequest
+    ): Result<MovieDetailDto> {
+        return try {
+            val userId = jwtAuthHelper.resolveUserId(request)
+            Result.success(movieDetailService.getDetail(id, userId))
+        } catch (e: IllegalArgumentException) {
+            Result.error(404, e.message ?: "电影不存在")
+        }
+    }
+
+    /** 强制从 TMDB 重新同步电影列表（需本机可访问 TMDB） */
+    @PostMapping("/sync")
+    fun syncMovies(): Result<String> {
+        movieSyncService.syncNowPlayingIfNeeded(force = true)
+        movieSyncService.syncTop500IfNeeded(force = true)
+        return Result.success("电影列表已重新同步")
+    }
+
+    /** 为缺少中文片名的电影从 TMDB 拉取 zh-CN 标题写入 title 字段 */
+    @PostMapping("/refresh-chinese-titles")
+    fun refreshChineseTitles(): Result<Map<String, Int>> {
+        val result = movieTitleRefreshService.refreshChineseTitles()
+        return Result.success(
+            mapOf(
+                "total" to result.total,
+                "updated" to result.updated,
+                "skipped" to result.skipped,
+                "failed" to result.failed
+            )
+        )
+    }
+
+    private fun toPageDto(
+        moviePage: com.baomidou.mybatisplus.extension.plugins.pagination.Page<Movie>,
+        page: Long,
+        size: Long
+    ): MoviePageDto = MoviePageDto(
+        records = moviePage.getRecords(),
+        total = moviePage.getTotal(),
+        page = page,
+        size = size
+    )
 }
