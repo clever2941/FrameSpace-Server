@@ -4,7 +4,9 @@ import com.framespace.common.GenreCatalog
 import com.framespace.common.Result
 import com.framespace.dto.EnsureMovieDto
 import com.framespace.dto.MovieDetailDto
+import com.framespace.dto.MovieExtrasDto
 import com.framespace.dto.MoviePageDto
+import com.framespace.dto.ReviewPageDto
 import com.framespace.entity.Movie
 import com.framespace.service.MovieDetailService
 import com.framespace.service.MovieService
@@ -84,6 +86,28 @@ class MovieController(
         return try {
             val userId = jwtAuthHelper.resolveUserId(request)
             Result.success(movieDetailService.getDetail(id, userId))
+        } catch (e: IllegalArgumentException) {
+            Result.error(404, e.message ?: "电影不存在")
+        }
+    }
+
+    @GetMapping("/{id}/extras")
+    fun getMovieExtras(@PathVariable("id") id: Long): Result<MovieExtrasDto> {
+        return try {
+            Result.success(movieDetailService.getExtras(id))
+        } catch (e: IllegalArgumentException) {
+            Result.error(404, e.message ?: "电影不存在")
+        }
+    }
+
+    @GetMapping("/{id}/reviews")
+    fun getMovieReviews(
+        @PathVariable("id") id: Long,
+        @RequestParam(value = "cursor", required = false) cursor: String?,
+        @RequestParam(value = "size", defaultValue = "3") size: Int
+    ): Result<ReviewPageDto> {
+        return try {
+            Result.success(movieDetailService.listReviews(id, cursor, size))
         } catch (e: IllegalArgumentException) {
             Result.error(404, e.message ?: "电影不存在")
         }

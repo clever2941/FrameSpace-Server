@@ -11,10 +11,18 @@ data class PersonDto(
 )
 
 data class ReviewDto(
+    val id: String,
     val author: String,
     val content: String,
     val rating: Double?,
-    val source: String
+    val source: String,
+    val createdAt: String? = null
+)
+
+data class ReviewPageDto(
+    val records: List<ReviewDto>,
+    val nextCursor: String? = null,
+    val hasMore: Boolean
 )
 
 data class CommentDto(
@@ -69,12 +77,20 @@ data class FavoriteToggleDto(val favorited: Boolean)
 
 data class AvatarUploadDto(val avatarUrl: String)
 
+data class MovieExtrasDto(
+    val stills: List<String>,
+    val directors: List<PersonDto>,
+    val cast: List<PersonDto>
+)
+
 data class MovieDetailDto(
     val movie: Movie,
     val stills: List<String>,
     val directors: List<PersonDto>,
     val cast: List<PersonDto>,
     val reviews: List<ReviewDto>,
+    val reviewsHasMore: Boolean = false,
+    val extrasAvailable: Boolean = false,
     val comments: List<CommentDto>,
     val movieLikeCount: Long,
     val likedByMe: Boolean,

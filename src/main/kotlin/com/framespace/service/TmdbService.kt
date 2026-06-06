@@ -35,18 +35,35 @@ class TmdbService(
         return fetchResults(url)
     }
 
-    fun fetchMovieDetail(tmdbId: Int): JsonNode? {
+    fun fetchMovieDetail(tmdbId: Int): JsonNode? = fetchMovieCredits(tmdbId)
+
+    fun fetchMovieCredits(tmdbId: Int): JsonNode? {
         val url = UriComponentsBuilder.fromHttpUrl("$baseUrl/movie/$tmdbId")
             .queryParam("api_key", apiKey)
             .queryParam("language", "zh-CN")
-            .queryParam("append_to_response", "credits,images,reviews")
+            .queryParam("append_to_response", "credits")
             .build()
             .toUriString()
-        return try {
-            restTemplate.getForObject(url, JsonNode::class.java)
-        } catch (_: Exception) {
-            null
-        }
+        return fetchJson(url)
+    }
+
+    fun fetchMovieImages(tmdbId: Int): JsonNode? {
+        val url = UriComponentsBuilder.fromHttpUrl("$baseUrl/movie/$tmdbId/images")
+            .queryParam("api_key", apiKey)
+            .queryParam("include_image_language", "null,en,zh")
+            .build()
+            .toUriString()
+        return fetchJson(url)
+    }
+
+    fun fetchMovieReviews(tmdbId: Int, page: Int, language: String = "zh-CN"): JsonNode? {
+        val url = UriComponentsBuilder.fromHttpUrl("$baseUrl/movie/$tmdbId/reviews")
+            .queryParam("api_key", apiKey)
+            .queryParam("language", language)
+            .queryParam("page", page.coerceAtLeast(1))
+            .build()
+            .toUriString()
+        return fetchJson(url)
     }
 
     fun searchMovies(query: String, page: Int): JsonNode? {

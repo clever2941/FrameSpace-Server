@@ -30,7 +30,7 @@ class AppReleaseService(
             versionName = latestVersionName,
             releaseNotes = releaseNotes,
             forceUpdate = forceUpdate && hasUpdate,
-            downloadUrl = "$base/api/app/update/download",
+            downloadUrl = "$base/api/app/update/download?v=$latestVersionCode",
             apkSizeBytes = if (apkExists) Files.size(apkPath) else 0L
         )
     }
